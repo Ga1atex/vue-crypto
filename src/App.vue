@@ -123,6 +123,7 @@
                 {{ paginatedCoin.name }} - USD
               </dt>
               <dd class="mt-1 text-3xl font-semibold text-gray-900">
+                <!-- {{ formatPrice(paginatedCoin.price) }} -->
                 {{ paginatedCoin.price }}
               </dd>
             </div>
@@ -195,6 +196,8 @@
 </template>
 
 <script>
+import { requestCoins, subscribeToCoin } from "./api/api";
+
 export default {
   name: "App",
   components: {},
@@ -219,16 +222,22 @@ export default {
       new URL(window.location).searchParams.entries()
     );
 
-    for (const [param, paramValue] of Object.entries(windowData)) {
-      this[param] = paramValue;
-    }
+    const VALID_KEYS = ["filter", "page"];
+    VALID_KEYS.forEach((key) => {
+      if (windowData[key]) {
+        this[key] = windowData[key];
+      }
+    });
 
     const coinsData = localStorage.getItem("crypto-list");
 
-    if (coinsData) {
+    if (coinsData?.length) {
       this.coins = JSON.parse(coinsData);
-      this.coins.forEach((t) => {
-        this.subscribeToUpdates(t.name);
+      this.updateCoinPrices();
+      this.coins.forEach((coin) => {
+        subscribeToCoin(coin.name, (newPrice) =>
+          this.updateCoinPrice(coin.name, newPrice)
+        );
       });
     }
   },
@@ -267,12 +276,17 @@ export default {
     },
   },
   methods: {
-    subscribeToUpdates(coinName) {
-      this.setPrice(coinName);
-      this.timer = setInterval(async () => {
-        this.setPrice(coinName);
-      }, 8000);
+    updateCoinPrice(coinName, price) {
+      this.coins.find((coin) => coin.name === coinName).price = price;
+      // if coins can be duplicated then do forEach and filter instead of find
+      // .forEach((coin) => {
+      //   coin.price = price;
+      // });
     },
+    // updateCoinPrices() {
+    // this.setCoinPrices();
+    // this.timer = setInterval(() => this.setCoinPrices(), 8000);
+    // },
     addAndUpdate() {
       const coinName = this.coinNameInput.toUpperCase();
       if (!coinName) {
@@ -291,23 +305,34 @@ export default {
         this.coins = [...this.coins, currentCoin];
         this.filter = "";
         this.coinSuggestions = [];
+        subscribeToCoin(currentCoin.name, (newPrice) =>
+          this.updateCoinPrice(currentCoin.name, newPrice)
+        );
 
-        this.subscribeToUpdates(currentCoin.name);
+        this.updateCoinPrices(currentCoin.name);
 
-        this.coin = "";
+        this.coinNameInput = "";
       }
     },
-    async setPrice(coinName) {
-      const data = await this.fetchPrice(coinName);
-      if (data) {
-        this.coins.find((t) => t.name === coinName).price =
-          data?.USD > 1 ? data.USD.toFixed(2) : data?.USD?.toPrecision(2);
-
-        if (this.selectedCoin?.name === coinName) {
-          this.graph.push(data.USD);
-        }
-      }
+    formatPrice(price) {
+      if (!price) return;
+      return price > 1 ? price.toFixed(2) : price?.toPrecision(2);
     },
+    // async setCoinPrices() {
+    // const coinPriceData = await requestPrices(
+    //   this.coins.map((coin) => coin.name)
+    // );
+    // if (coinPriceData) {
+    //   this.coins.forEach((coin) => {
+    //     const price = coinPriceData[coin.name]?.USD;
+    //     coin.price = this.formatPrice(price);
+    //     // coin.price = price;
+    //     if (this.selectedCoin?.name === coin.name) {
+    //       this.graph.push(price);
+    //     }
+    //   });
+    // }
+    // },
     updateCoinsInLocalStorage() {
       localStorage.setItem("crypto-list", JSON.stringify(this.coins));
     },
@@ -329,7 +354,7 @@ export default {
       const coinName = this.coinNameInput.toUpperCase();
 
       if (coinName) {
-        for (let coinValue of Object.values(this.allCoinData)) {
+        for (const coinValue of Object.values(this.allCoinData)) {
           if (this.coinSuggestions.length > 3) break;
           if (
             coinValue.Symbol.toUpperCase().includes(coinName) ||
@@ -340,31 +365,15 @@ export default {
         }
       }
     },
-    async fetchCoins() {
-      const response = await fetch(
-        "https://min-api.cryptocompare.com/data/all/coinlist?summary=true"
-      );
-
-      const responseData = await response.json();
+    async getCoinsData() {
+      const coinsData = await requestCoins();
 
       this.isAppInitialized = true;
-      this.allCoinData = responseData.Data;
-    },
-    async fetchPrice(coinNames) {
-      // if (Array.isArray(coinNames)) {
-      //   coinNames = coinNames.join(",");
-      // }
-
-      const f = await fetch(
-        `https://min-api.cryptocompare.com/data/price?fsym=${coinNames}&tsyms=USD&api_key=f22a136a4626481601277a8e9da7a231469f3e5062a0b042e5c5b4ddee364dab`
-        // `https://min-api.cryptocompare.com/data/pricemulti?fsyms=${coinNames}&tsyms=USD&api_key=f22a136a4626481601277a8e9da7a231469f3e5062a0b042e5c5b4ddee364dab`
-      );
-
-      return await f.json();
+      this.allCoinData = coinsData.Data;
     },
   },
   mounted() {
-    this.fetchCoins();
+    this.getCoinsData();
   },
   watch: {
     selectedCoin() {
