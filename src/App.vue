@@ -26,85 +26,29 @@
       </svg>
     </div>
     <div class="container">
-      <section>
-        <div class="flex">
-          <div class="max-w-xs">
-            <label for="wallet" class="block text-sm font-medium text-gray-700"
-              >Тикер</label
-            >
-            <div class="mt-1 relative rounded-md shadow-md">
-              <input
-                v-model="coinNameInput"
-                @input="coinOnChange"
-                @keydown.enter="addAndUpdate"
-                type="text"
-                name="wallet"
-                id="wallet"
-                class="block w-full pr-10 border-gray-300 text-gray-900 focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm rounded-md"
-                placeholder="Например DOGE"
-              />
-            </div>
-            <div
-              v-show="coinSuggestions.length"
-              class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap"
-            >
-              <span
-                v-for="coin of coinSuggestions"
-                @click="
-                  coinNameInput = coin;
-                  addAndUpdate();
-                "
-                :key="coin"
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                {{ coin }}
-              </span>
-            </div>
-            <div class="text-sm text-red-600" v-if="coinInputError">
-              {{ coinInputError }}
-            </div>
-          </div>
-        </div>
-        <button
-          @click="addAndUpdate"
-          type="button"
-          class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-        >
-          <!-- Heroicon name: solid/mail -->
-          <svg
-            class="-ml-0.5 mr-2 h-6 w-6"
-            xmlns="http://www.w3.org/2000/svg"
-            width="30"
-            height="30"
-            viewBox="0 0 24 24"
-            fill="#ffffff"
-          >
-            <path
-              d="M13 7h-2v4H7v2h4v4h2v-4h4v-2h-4V7zm-1-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"
-            ></path>
-          </svg>
-          Добавить
-        </button>
-      </section>
+      <add-coin
+        @add-coin="addAndUpdate"
+        :allCoinData="allCoinData"
+        :coins="coins"
+      />
       <template v-if="coins.length">
         <div>
           <hr class="w-full border-t border-gray-600 my-4" />
           <div class=""><span>Фильтр:</span> <input v-model="filter" /></div>
           <div class="" v-if="filteredList.length > 6">
-            <button
+            <rounded-button
               @click="page = +page - 1"
               :disabled="!(page > 1)"
-              class="my-4 mx-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              class="mx-2"
             >
               Назад
-            </button>
-            <button
+            </rounded-button>
+            <rounded-button
               :disabled="!(page < Math.ceil(coins.length / pagePortionSize))"
               @click="page = +page + 1"
-              class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
             >
               Вперед
-            </button>
+            </rounded-button>
           </div>
         </div>
         <hr class="w-full border-t border-gray-600 my-4" />
@@ -113,18 +57,20 @@
             v-for="paginatedCoin in paginatedList"
             :key="paginatedCoin.name"
             @click="select(paginatedCoin)"
-            :class="{
-              'border-4': selectedCoin === paginatedCoin,
-            }"
-            class="bg-white overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
+            :class="[
+              {
+                'border-4': selectedCoin === paginatedCoin,
+              },
+              paginatedCoin.error ? 'bg-red-100' : 'bg-white',
+            ]"
+            class="overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
           >
             <div class="px-4 py-5 sm:p-6 text-center">
               <dt class="text-sm font-medium text-gray-500 truncate">
                 {{ paginatedCoin.name }} - USD
               </dt>
               <dd class="mt-1 text-3xl font-semibold text-gray-900">
-                <!-- {{ formatPrice(paginatedCoin.price) }} -->
-                {{ paginatedCoin.price }}
+                {{ formatPrice(paginatedCoin.price) }}
               </dd>
             </div>
             <div class="w-full border-t border-gray-200"></div>
@@ -151,73 +97,102 @@
         </dl>
         <hr class="w-full border-t border-gray-600 my-4" />
       </template>
-      <section v-if="selectedCoin" class="relative">
-        <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
-          {{ selectedCoin.name }} - USD
-        </h3>
-        <div class="flex items-end border-gray-600 border-b border-l h-64">
-          <div
-            v-for="(bar, i) in normalizeGraph"
-            :key="i"
-            :style="{ height: `${bar}%` }"
-            class="bg-purple-800 border w-10"
-          ></div>
-        </div>
-        <button
-          @click="selectedCoin = null"
-          type="button"
-          class="absolute top-0 right-0"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            xmlns:xlink="http://www.w3.org/1999/xlink"
-            xmlns:svgjs="http://svgjs.com/svgjs"
-            version="1.1"
-            width="30"
-            height="30"
-            x="0"
-            y="0"
-            viewBox="0 0 511.76 511.76"
-            style="enable-background: new 0 0 512 512"
-            xml:space="preserve"
-          >
-            <g>
-              <path
-                d="M436.896,74.869c-99.84-99.819-262.208-99.819-362.048,0c-99.797,99.819-99.797,262.229,0,362.048    c49.92,49.899,115.477,74.837,181.035,74.837s131.093-24.939,181.013-74.837C536.715,337.099,536.715,174.688,436.896,74.869z     M361.461,331.317c8.341,8.341,8.341,21.824,0,30.165c-4.16,4.16-9.621,6.251-15.083,6.251c-5.461,0-10.923-2.091-15.083-6.251    l-75.413-75.435l-75.392,75.413c-4.181,4.16-9.643,6.251-15.083,6.251c-5.461,0-10.923-2.091-15.083-6.251    c-8.341-8.341-8.341-21.845,0-30.165l75.392-75.413l-75.413-75.413c-8.341-8.341-8.341-21.845,0-30.165    c8.32-8.341,21.824-8.341,30.165,0l75.413,75.413l75.413-75.413c8.341-8.341,21.824-8.341,30.165,0    c8.341,8.32,8.341,21.824,0,30.165l-75.413,75.413L361.461,331.317z"
-                fill="#718096"
-                data-original="#000000"
-              ></path>
-            </g>
-          </svg>
-        </button>
-      </section>
+      <price-graph
+        @close-graph="selectedCoin = null"
+        @update-graph-amount="updateGraphAmount"
+        :selectedCoin="selectedCoin"
+        :graph="graph"
+      ></price-graph>
+      <rounded-button
+        data-modal-toggle="defaultModal"
+        @click="modalIsOpen = true"
+      >
+        Open modal
+      </rounded-button>
+      <rounded-button
+        data-modal-toggle="defaultModal"
+        @click="dangerModalIsOpen = true"
+      >
+        Open danger modal
+      </rounded-button>
     </div>
   </div>
+  <my-modal
+    :is-open="modalIsOpen"
+    @close="modalIsOpen = false"
+    @confirm="modalIsOpen = false"
+  >
+    <template v-slot:header> Terms of Service </template>
+    <template v-slot:default>
+      <div class="p-6 space-y-6">
+        <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400">
+          With less than a month to go before the European Union enacts new
+          consumer privacy laws for its citizens, companies around the world are
+          updating their terms of service agreements to comply.
+        </p>
+        <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400">
+          The European Union’s General Data Protection Regulation (G.D.P.R.)
+          goes into effect on May 25 and is meant to ensure a common set of data
+          rights in the European Union. It requires organizations to notify
+          users as soon as possible of high-risk data breaches that could
+          personally affect them.
+        </p>
+      </div>
+    </template>
+  </my-modal>
+  <danger-modal
+    :isOpen="dangerModalIsOpen"
+    @confirm="dangerModalIsOpen = false"
+    @close="dangerModalIsOpen = false"
+  ></danger-modal>
 </template>
 
 <script>
-import { requestCoins, subscribeToCoin } from "./api/api";
+import {
+  requestCoins,
+  subscribeToCoin,
+  unsubscribeToCoin,
+  // startSW,
+} from "./api/api";
+import RoundedButton from "./components/common/RoundedButton";
+import MyModal from "./components/common/MyModal";
+import DangerModal from "./components/common/DangerModal";
+import AddCoin from "./components/AddCoin";
+import PriceGraph from "./components/PriceGraph";
 
 export default {
   name: "App",
-  components: {},
+  components: {
+    AddCoin,
+    RoundedButton,
+    PriceGraph,
+    MyModal,
+    DangerModal,
+  },
   data() {
     return {
-      coinNameInput: "",
       coinInputError: "",
       coins: [],
       coinSuggestions: [],
       selectedCoin: null,
-      timer: null,
       graph: [],
       allCoinData: {},
       isAppInitialized: false,
       filter: "",
       page: 1,
       pagePortionSize: 6,
+      modalIsOpen: false,
+      dangerModalIsOpen: false,
     };
   },
   created() {
+    // startSW();
+
+    // const bc = new BroadcastChannel("socketChannel");
+    // window.bc = bc;
+    // bc.onmessage = (e) => console.log(e, e.data);
+    // bc.postMessage("postMessage");
+
     const windowData = Object.fromEntries(
       new URL(window.location).searchParams.entries()
     );
@@ -233,15 +208,20 @@ export default {
 
     if (coinsData?.length) {
       this.coins = JSON.parse(coinsData);
-      this.updateCoinPrices();
       this.coins.forEach((coin) => {
         subscribeToCoin(coin.name, (newPrice) =>
           this.updateCoinPrice(coin.name, newPrice)
+        );
+        subscribeToCoin(coin.name, (coinName, errorMessage) =>
+          this.setCoinError(coinName, errorMessage)
         );
       });
     }
   },
   computed: {
+    // createResizeObserver() {
+    //   return new ResizeObserver(this.updateGraphAmount);
+    // },
     pageStateOptions() {
       return {
         filter: this.filter,
@@ -262,108 +242,69 @@ export default {
     paginatedList() {
       return this.filteredList.slice(this.startPageIndex, this.endPageIndex);
     },
-    normalizeGraph() {
-      const maxValue = Math.max(...this.graph);
-      const minValue = Math.min(...this.graph);
-
-      if (maxValue === minValue) {
-        return this.graph.map(() => 50);
-      }
-
-      return this.graph.map(
-        (price) => 5 + ((price - minValue) * 95) / (maxValue - minValue)
-      );
-    },
   },
   methods: {
-    updateCoinPrice(coinName, price) {
-      this.coins.find((coin) => coin.name === coinName).price = price;
-      // if coins can be duplicated then do forEach and filter instead of find
-      // .forEach((coin) => {
-      //   coin.price = price;
-      // });
-    },
-    // updateCoinPrices() {
-    // this.setCoinPrices();
-    // this.timer = setInterval(() => this.setCoinPrices(), 8000);
-    // },
-    addAndUpdate() {
-      const coinName = this.coinNameInput.toUpperCase();
-      if (!coinName) {
-        this.coinInputError = "Введите значение";
-        return;
+    updateGraphAmount(maxGraphElements) {
+      if (this.graph.length > maxGraphElements) {
+        this.graph = this.graph.slice(this.graph.length - maxGraphElements);
       }
+    },
+    updateCoinPrice(coinName, price) {
+      const currentCoin = this.coins.find((coin) => coin.name === coinName);
+      if (currentCoin === this.selectedCoin) {
+        // this.updateGraphAmount();
 
+        // this.graph.push(price);
+        this.graph = [...this.graph, price];
+      }
+      currentCoin.price = price;
+    },
+    setCoinError(coinName, errorMessage) {
+      const currentCoin = this.coins.find((coin) => coin.name === coinName);
+      currentCoin.error = errorMessage;
+    },
+    addAndUpdate(coinName) {
       const currentCoin = {
         name: coinName,
-        price: "-",
+        price: null,
       };
-      if (this.coins.some((t) => coinName === t.name)) {
-        this.coinInputError = "Такой тикер уже добавлен";
-      } else {
-        // this.coins.push(currentcoin);
-        this.coins = [...this.coins, currentCoin];
-        this.filter = "";
-        this.coinSuggestions = [];
-        subscribeToCoin(currentCoin.name, (newPrice) =>
-          this.updateCoinPrice(currentCoin.name, newPrice)
-        );
 
-        this.updateCoinPrices(currentCoin.name);
+      // if (this.coins.some((t) => coinName === t.name)) {
+      //   this.coinInputError = "Такой тикер уже добавлен";
+      // } else {
+      // make a new array so watch method will work
+      this.coins = [...this.coins, currentCoin];
+      // this.coins.push(currentcoin);
+      this.filter = "";
 
-        this.coinNameInput = "";
-      }
+      subscribeToCoin(currentCoin.name, (newPrice) =>
+        this.updateCoinPrice(currentCoin.name, newPrice)
+      );
+      subscribeToCoin(currentCoin.name, (coinName, errorMessage) =>
+        this.setCoinError(coinName, errorMessage)
+      );
+      // }
     },
     formatPrice(price) {
-      if (!price) return;
-      return price > 1 ? price.toFixed(2) : price?.toPrecision(2);
+      if (price === null) {
+        return "-";
+      }
+      if (typeof price === "string") price = Number(price);
+      return price > 1 ? price.toFixed(2) : price.toPrecision(2);
     },
-    // async setCoinPrices() {
-    // const coinPriceData = await requestPrices(
-    //   this.coins.map((coin) => coin.name)
-    // );
-    // if (coinPriceData) {
-    //   this.coins.forEach((coin) => {
-    //     const price = coinPriceData[coin.name]?.USD;
-    //     coin.price = this.formatPrice(price);
-    //     // coin.price = price;
-    //     if (this.selectedCoin?.name === coin.name) {
-    //       this.graph.push(price);
-    //     }
-    //   });
-    // }
-    // },
     updateCoinsInLocalStorage() {
       localStorage.setItem("crypto-list", JSON.stringify(this.coins));
     },
     handleDelete(coin) {
       this.coins = this.coins.filter((t) => t !== coin);
-      clearInterval(this.timer);
 
       if (this.selectedCoin === coin) {
         this.selectedCoin = null;
       }
+      unsubscribeToCoin(coin.name);
     },
     select(coin) {
       this.selectedCoin = coin;
-    },
-    coinOnChange() {
-      this.coinInputError = "";
-      this.coinSuggestions = [];
-
-      const coinName = this.coinNameInput.toUpperCase();
-
-      if (coinName) {
-        for (const coinValue of Object.values(this.allCoinData)) {
-          if (this.coinSuggestions.length > 3) break;
-          if (
-            coinValue.Symbol.toUpperCase().includes(coinName) ||
-            coinValue.FullName.toUpperCase().includes(coinName)
-          ) {
-            this.coinSuggestions.push(coinValue.Symbol.toUpperCase());
-          }
-        }
-      }
     },
     async getCoinsData() {
       const coinsData = await requestCoins();
@@ -375,9 +316,17 @@ export default {
   mounted() {
     this.getCoinsData();
   },
+  beforeUnmount() {},
   watch: {
     selectedCoin() {
-      this.graph = [];
+      this.graph = [this.selectedCoin.price];
+
+      // // this.$nextTick(() => {
+      // this.$nextTick().then(() => {
+      //   this.calculateMaxGraphElements();
+
+      //   // this.createResizeObserver.observe(this.$refs.graph);
+      // });
     },
     paginatedList() {
       if (this.paginatedList.length === 0 && this.page > 1) {
@@ -385,8 +334,7 @@ export default {
       }
     },
     coins() {
-      // this.updateCoinsInLocalStorage();
-      localStorage.setItem("crypto-list", JSON.stringify(this.coins));
+      this.updateCoinsInLocalStorage();
     },
     filter() {
       this.page = 1;
