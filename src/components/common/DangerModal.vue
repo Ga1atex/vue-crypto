@@ -1,5 +1,6 @@
 <template lang="">
-  <my-modal :isOpen="isOpen" @close-modal="modalIsOpen = false">
+  <my-modal ref="confirmationModal">
+    <!-- <my-modal :isOpen="isOpen" @close-modal="modalIsOpen = false"> -->
     <template v-slot:header> Danger Modal </template>
     <template v-slot:default>
       <div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
@@ -74,10 +75,18 @@ export default {
   data() {
     return {
       submitText: "",
-      modalIsOpen: this.isOpen,
+      // modalIsOpen: this.isOpen,
     };
   },
-  methods: {},
+  methods: {
+    async openModal() {
+      const modalResult = await this.$refs.confirmationModal.open();
+
+      if (modalResult) {
+        console.log("123");
+      }
+    },
+  },
   computed: {
     isConfirmed() {
       return this.submitText === this.$options.CONFIRMATION_TEXT;

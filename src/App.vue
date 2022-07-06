@@ -103,25 +103,28 @@
         :selectedCoin="selectedCoin"
         :graph="graph"
       ></price-graph>
-      <rounded-button
+      <!-- <rounded-button
         data-modal-toggle="defaultModal"
         @click="modalIsOpen = true"
-      >
+      > -->
+      <rounded-button @click="$refs.simpleModalRef.open()">
         Open modal
       </rounded-button>
-      <rounded-button
+      <!-- <rounded-button
         data-modal-toggle="defaultModal"
         @click="dangerModalIsOpen = true"
-      >
+      > -->
+      <rounded-button @click="$refs.dangerModalRef.openModal()">
         Open danger modal
       </rounded-button>
     </div>
   </div>
-  <my-modal
+  <my-modal ref="simpleModalRef">
+    <!-- <my-modal
     :is-open="modalIsOpen"
     @close="modalIsOpen = false"
     @confirm="modalIsOpen = false"
-  >
+  > -->
     <template v-slot:header> Terms of Service </template>
     <template v-slot:default>
       <div class="p-6 space-y-6">
@@ -140,11 +143,12 @@
       </div>
     </template>
   </my-modal>
-  <danger-modal
+  <danger-modal ref="dangerModalRef"></danger-modal>
+  <!-- <danger-modal
     :isOpen="dangerModalIsOpen"
     @confirm="dangerModalIsOpen = false"
     @close="dangerModalIsOpen = false"
-  ></danger-modal>
+  ></danger-modal> -->
 </template>
 
 <script>
@@ -181,8 +185,8 @@ export default {
       filter: "",
       page: 1,
       pagePortionSize: 6,
-      modalIsOpen: false,
-      dangerModalIsOpen: false,
+      // modalIsOpen: false,
+      // dangerModalIsOpen: false,
     };
   },
   created() {
