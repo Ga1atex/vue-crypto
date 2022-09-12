@@ -155,7 +155,7 @@
 import {
   requestCoins,
   subscribeToCoin,
-  unsubscribeToCoin,
+  unsubscribeFromCoin,
   // startSW,
 } from "./api/api";
 import RoundedButton from "./components/common/RoundedButton";
@@ -192,35 +192,8 @@ export default {
   created() {
     // startSW();
 
-    // const bc = new BroadcastChannel("socketChannel");
-    // window.bc = bc;
-    // bc.onmessage = (e) => console.log(e, e.data);
-    // bc.postMessage("postMessage");
-
-    const windowData = Object.fromEntries(
-      new URL(window.location).searchParams.entries()
-    );
-
-    const VALID_KEYS = ["filter", "page"];
-    VALID_KEYS.forEach((key) => {
-      if (windowData[key]) {
-        this[key] = windowData[key];
-      }
-    });
-
-    const coinsData = localStorage.getItem("crypto-list");
-
-    if (coinsData?.length) {
-      this.coins = JSON.parse(coinsData);
-      this.coins.forEach((coin) => {
-        subscribeToCoin(coin.name, (newPrice) =>
-          this.updateCoinPrice(coin.name, newPrice)
-        );
-        subscribeToCoin(coin.name, (coinName, errorMessage) =>
-          this.setCoinError(coinName, errorMessage)
-        );
-      });
-    }
+    this.syncFromUrl();
+    this.syncFromLocalStorage();
   },
   computed: {
     // createResizeObserver() {
@@ -248,6 +221,33 @@ export default {
     },
   },
   methods: {
+    syncFromLocalStorage() {
+      const coinsData = localStorage.getItem("crypto-list");
+
+      if (coinsData?.length) {
+        this.coins = JSON.parse(coinsData);
+        this.coins.forEach((coin) => {
+          subscribeToCoin(coin.name, (newPrice) =>
+            this.updateCoinPrice(coin.name, newPrice)
+          );
+          subscribeToCoin(coin.name, (coinName, errorMessage) =>
+            this.setCoinError(coinName, errorMessage)
+          );
+        });
+      }
+    },
+    syncFromUrl() {
+      const windowData = Object.fromEntries(
+        new URL(window.location).searchParams.entries()
+      );
+
+      const VALID_KEYS = ["filter", "page"];
+      VALID_KEYS.forEach((key) => {
+        if (windowData[key]) {
+          this[key] = windowData[key];
+        }
+      });
+    },
     updateGraphAmount(maxGraphElements) {
       if (this.graph.length > maxGraphElements) {
         this.graph = this.graph.slice(this.graph.length - maxGraphElements);
@@ -272,11 +272,7 @@ export default {
         name: coinName,
         price: null,
       };
-
-      // if (this.coins.some((t) => coinName === t.name)) {
-      //   this.coinInputError = "Такой тикер уже добавлен";
-      // } else {
-      // make a new array so watch method will work
+      // make a new array so watch will work
       this.coins = [...this.coins, currentCoin];
       // this.coins.push(currentcoin);
       this.filter = "";
@@ -305,7 +301,7 @@ export default {
       if (this.selectedCoin === coin) {
         this.selectedCoin = null;
       }
-      unsubscribeToCoin(coin.name);
+      unsubscribeFromCoin(coin.name);
     },
     select(coin) {
       this.selectedCoin = coin;
@@ -343,16 +339,18 @@ export default {
     filter() {
       this.page = 1;
     },
-    pageStateOptions(value) {
+    pageStateOptions(params) {
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value) {
+          searchParams.append(key, value);
+        }
+      });
+
       window.history.pushState(
         null,
         document.title,
-        // eslint-disable-next-line
-        `${window.location.pathname}?${
-          this.filter ? `filter=${value.filter}&` : ""
-        }${`page=${value.page}`}`
-        //  `${window.location.pathname}?${`page=${this.page}`}` +
-        // `${this.filter ? `&filter=${this.filter}` : ""}`
+        `${window.location.pathname}?${searchParams}`
       );
     },
   },
