@@ -1,5 +1,5 @@
 <template lang="">
-  <section v-if="selectedCoin" class="relative">
+  <section class="relative">
     <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
       {{ selectedCoin.name }} - USD
     </h3>
@@ -39,11 +39,12 @@ export default {
   },
   emits: {
     "close-graph": null,
-    "update-graph-amount": null,
+    "update-graph-bar-amount": null,
   },
   data() {
     return {
       maxGraphElements: 1,
+      resizeObserver: null,
     };
   },
   methods: {
@@ -57,9 +58,12 @@ export default {
         this.$refs.graph?.clientWidth / (this.$refs.graphbar?.offsetWidth || 40)
       );
     },
-    updateGraphAmount() {
+    createResizeObserver() {
+      this.resizeObserver = new ResizeObserver(this.updateGraphBarAmount);
+    },
+    updateGraphBarAmount() {
       this.calculateMaxGraphElements();
-      this.$emit("update-graph-amount", this.maxGraphElements);
+      this.$emit("update-graph-bar-amount", this.maxGraphElements);
       // if (this.graph.length > this.maxGraphElements) {
       //   this.graph = this.graph.slice(
       //     this.graph.length - this.maxGraphElements
@@ -82,25 +86,25 @@ export default {
     },
   },
   mounted() {
-    // this.calculateMaxGraphElements();
-
-    window.addEventListener("resize", this.updateGraphAmount);
+    this.createResizeObserver();
+    this.resizeObserver.observe(this.$refs.graph);
+    // window.addEventListener("resize", this.updateGraphBarAmount);
   },
   beforeUnmount() {
-    window.removeEventListener("resize", this.updateGraphAmount);
-    // this.createResizeObserver.unobserve(this.$refs.graph);
+    // this.resizeObserver.unobserve(this.$refs.graph);
+    this.resizeObserver.disconnect();
+    // window.removeEventListener("resize", this.updateGraphBarAmount);
   },
   watch: {
-    selectedCoin() {
-      // this.$nextTick().then(() => {
-      this.$nextTick(() => {
-        this.calculateMaxGraphElements();
-
-        // this.createResizeObserver.observe(this.$refs.graph);
-      });
-    },
+    // selectedCoin() {
+    // 2 ways of syntax
+    // this.$nextTick().then(() => {
+    // this.$nextTick(() => {
+    // if (this.$refs.graph) this.resizeObserver.observe(this.$refs.graph);
+    // });
+    // },
     graph() {
-      this.updateGraphAmount();
+      this.updateGraphBarAmount();
     },
   },
 };

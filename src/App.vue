@@ -56,14 +56,14 @@
           <div
             v-for="paginatedCoin in paginatedList"
             :key="paginatedCoin.name"
-            @click="select(paginatedCoin)"
+            @click="!paginatedCoin.error && select(paginatedCoin)"
             :class="[
               {
                 'border-4': selectedCoin === paginatedCoin,
               },
-              paginatedCoin.error ? 'bg-red-100' : 'bg-white',
+              paginatedCoin.error ? 'bg-red-100' : 'bg-white cursor-pointer',
             ]"
-            class="overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
+            class="overflow-hidden shadow rounded-lg border-purple-800 border-solid"
           >
             <div class="px-4 py-5 sm:p-6 text-center">
               <dt class="text-sm font-medium text-gray-500 truncate">
@@ -99,32 +99,20 @@
       </template>
       <price-graph
         @close-graph="selectedCoin = null"
-        @update-graph-amount="updateGraphAmount"
+        @update-graph-bar-amount="updateGraphBarAmount"
         :selectedCoin="selectedCoin"
         :graph="graph"
+        v-if="selectedCoin"
       ></price-graph>
-      <!-- <rounded-button
-        data-modal-toggle="defaultModal"
-        @click="modalIsOpen = true"
-      > -->
-      <rounded-button @click="$refs.simpleModalRef.open()">
+      <rounded-button @click="$refs.simpleModalRef.open()" class="mr-2">
         Open modal
       </rounded-button>
-      <!-- <rounded-button
-        data-modal-toggle="defaultModal"
-        @click="dangerModalIsOpen = true"
-      > -->
       <rounded-button @click="$refs.dangerModalRef.openModal()">
         Open danger modal
       </rounded-button>
     </div>
   </div>
   <my-modal ref="simpleModalRef">
-    <!-- <my-modal
-    :is-open="modalIsOpen"
-    @close="modalIsOpen = false"
-    @confirm="modalIsOpen = false"
-  > -->
     <template v-slot:header> Terms of Service </template>
     <template v-slot:default>
       <div class="p-6 space-y-6">
@@ -144,11 +132,6 @@
     </template>
   </my-modal>
   <danger-modal ref="dangerModalRef"></danger-modal>
-  <!-- <danger-modal
-    :isOpen="dangerModalIsOpen"
-    @confirm="dangerModalIsOpen = false"
-    @close="dangerModalIsOpen = false"
-  ></danger-modal> -->
 </template>
 
 <script>
@@ -160,7 +143,7 @@ import {
 } from "./api/api";
 import RoundedButton from "./components/common/RoundedButton";
 import MyModal from "./components/common/MyModal";
-import DangerModal from "./components/common/DangerModal";
+import DangerModal from "./components/DangerModal";
 import AddCoin from "./components/AddCoin";
 import PriceGraph from "./components/PriceGraph";
 
@@ -185,8 +168,6 @@ export default {
       filter: "",
       page: 1,
       pagePortionSize: 6,
-      // modalIsOpen: false,
-      // dangerModalIsOpen: false,
     };
   },
   created() {
@@ -196,9 +177,6 @@ export default {
     this.syncFromLocalStorage();
   },
   computed: {
-    // createResizeObserver() {
-    //   return new ResizeObserver(this.updateGraphAmount);
-    // },
     pageStateOptions() {
       return {
         filter: this.filter,
@@ -227,12 +205,24 @@ export default {
       if (coinsData?.length) {
         this.coins = JSON.parse(coinsData);
         this.coins.forEach((coin) => {
-          subscribeToCoin(coin.name, (newPrice) =>
-            this.updateCoinPrice(coin.name, newPrice)
-          );
-          subscribeToCoin(coin.name, (coinName, errorMessage) =>
-            this.setCoinError(coinName, errorMessage)
-          );
+          this.subscribeToCoinEvents(coin.name);
+        });
+      }
+    },
+    handleStorageEvent(e) {
+      if (e.key != "crypto-list") return;
+
+      const { newValue, oldValue } = e;
+
+      this.coins = JSON.parse(newValue);
+      const newCoinsList = JSON.parse(newValue);
+      const oldCoinsList = JSON.parse(oldValue);
+
+      if (newCoinsList.length > oldCoinsList.length) {
+        const newCoins = newCoinsList.slice(oldCoinsList.length);
+
+        newCoins.forEach((coin) => {
+          this.subscribeToCoinEvents(coin.name);
         });
       }
     },
@@ -248,7 +238,7 @@ export default {
         }
       });
     },
-    updateGraphAmount(maxGraphElements) {
+    updateGraphBarAmount(maxGraphElements) {
       if (this.graph.length > maxGraphElements) {
         this.graph = this.graph.slice(this.graph.length - maxGraphElements);
       }
@@ -256,8 +246,6 @@ export default {
     updateCoinPrice(coinName, price) {
       const currentCoin = this.coins.find((coin) => coin.name === coinName);
       if (currentCoin === this.selectedCoin) {
-        // this.updateGraphAmount();
-
         // this.graph.push(price);
         this.graph = [...this.graph, price];
       }
@@ -276,14 +264,7 @@ export default {
       this.coins = [...this.coins, currentCoin];
       // this.coins.push(currentcoin);
       this.filter = "";
-
-      subscribeToCoin(currentCoin.name, (newPrice) =>
-        this.updateCoinPrice(currentCoin.name, newPrice)
-      );
-      subscribeToCoin(currentCoin.name, (coinName, errorMessage) =>
-        this.setCoinError(coinName, errorMessage)
-      );
-      // }
+      this.subscribeToCoinEvents(currentCoin.name);
     },
     formatPrice(price) {
       if (price === null) {
@@ -312,21 +293,24 @@ export default {
       this.isAppInitialized = true;
       this.allCoinData = coinsData.Data;
     },
+    subscribeToCoinEvents(coin) {
+      subscribeToCoin(coin, {
+        success: (newPrice) => this.updateCoinPrice(coin, newPrice),
+        fail: (errorMessage) => this.setCoinError(coin, errorMessage),
+      });
+    },
   },
   mounted() {
     this.getCoinsData();
+
+    window.addEventListener("storage", this.handleStorageEvent);
   },
-  beforeUnmount() {},
+  beforeUnmount() {
+    window.removeEventListener("storage", this.handleStorageEvent);
+  },
   watch: {
     selectedCoin() {
-      this.graph = [this.selectedCoin.price];
-
-      // // this.$nextTick(() => {
-      // this.$nextTick().then(() => {
-      //   this.calculateMaxGraphElements();
-
-      //   // this.createResizeObserver.observe(this.$refs.graph);
-      // });
+      this.graph = [this.selectedCoin?.price];
     },
     paginatedList() {
       if (this.paginatedList.length === 0 && this.page > 1) {

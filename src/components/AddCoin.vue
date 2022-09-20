@@ -9,7 +9,7 @@
           <input
             v-model="coinNameInput"
             @input="coinOnChange"
-            @keydown.enter="addAndUpdate"
+            @keydown.enter="add"
             type="text"
             name="wallet"
             id="wallet"
@@ -25,7 +25,7 @@
             v-for="coin of coinSuggestions"
             @click="
               coinNameInput = coin;
-              addAndUpdate();
+              add();
             "
             :key="coin"
             class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
@@ -38,7 +38,7 @@
         </div>
       </div>
     </div>
-    <rounded-button @click="addAndUpdate" type="button">
+    <rounded-button @click="add" type="button">
       <!-- :disabled="!coinNameInput" -->
       <plus-sign-icon></plus-sign-icon>
       Добавить
@@ -93,7 +93,7 @@ export default {
         }
       }
     },
-    addAndUpdate() {
+    add() {
       if (!this.coinNameInput) {
         this.coinInputError = "Введите значение";
         return;
@@ -104,19 +104,9 @@ export default {
       if (this.coins.some((t) => coinName === t.name)) {
         this.coinInputError = "Такой тикер уже добавлен";
       } else {
-        // make a new array so watch method will work
-        // this.coins = [...this.coins, currentCoin];
-        // this.coins.push(currentcoin);
         this.$emit("add-coin", coinName);
-        // this.filter = "";
-        this.coinSuggestions = [];
 
-        // subscribeToCoin(currentCoin.name, (newPrice) =>
-        //   this.updateCoinPrice(currentCoin.name, newPrice)
-        // );
-        // subscribeToCoin(currentCoin.name, (coinName, errorMessage) =>
-        //   this.setCoinError(coinName, errorMessage)
-        // );
+        this.coinSuggestions = [];
         this.coinNameInput = "";
       }
     },

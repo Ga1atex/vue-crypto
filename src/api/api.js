@@ -4,9 +4,6 @@ const AGGREGATE_INDEX = "5";
 const ERROR_CODE = "500";
 const ERROR_MESSAGE = "INVALID_SUB";
 const USD_SYMBOL = "USD";
-// const BTC_SYMBOL = "BTC";
-// let btcPrice;
-// const coinsPricesInBTC = new Map();
 
 const coinHandlers = new Map();
 
@@ -19,61 +16,13 @@ export const requestCoins = async () => {
 
   return responseData;
 };
-// http way
-// export const requestPrices = async () => {
-//   if (coinHandlers.size === 0) return;
 
-//   // coinNames
-//   let fsyms;
-//   if (Array.isArray(coinHandlers)) {
-//     fsyms = coinHandlers.join(",");
-//   } else if (coinHandlers instanceof Map) {
-//     fsyms = Array.from(coinHandlers.keys()).join(",");
-//   }
-
-//   const url = new URL("https://min-api.cryptocompare.com/data/pricemulti");
-//   const tsyms = "USD";
-
-//   Object.entries({
-//     fsyms,
-//     tsyms,
-//     API_KEY,
-//   }).forEach(([key, value]) => {
-//     if (value !== null) {
-//       url.searchParams.append(key, value);
-//     }
-//   });
-
-//   // const url = `https://min-api.cryptocompare.com/data/pricemulti?fsyms=${fsyms}&tsyms=USD&api_key=${API_KEY}`;
-//   const f = await fetch(url);
-
-//   const fetchedData = await f.json();
-
-//   Object.entries(fetchedData).forEach(([currency, newPrice]) => {
-//     const handlers = coinHandlers.get(currency) ?? [];
-//     // handlers.forEach((fn) => fn(newPrice.USD));
-//     handlers[0](newPrice.USD);
-//   });
-
-//   return fetchedData;
-// };
-
-const id = uuidv4();
+const tabId = uuidv4();
 const worker = new SharedWorker(new URL("./shared-worker", import.meta.url));
-
-// const worker = new SharedWorker(
-//   new URL(
-//     "./shared-worker",
-//     import.meta.url
-//   ) /* webpackChunkName: 'shared-worker' */,
-//   { type: "module" }
-// );
 
 worker.port.start();
 
 let webSocketState; //= WebSocket.CONNECTING;
-
-// export const startSW = () => {
 
 worker.port.addEventListener(
   "message",
@@ -83,118 +32,47 @@ worker.port.addEventListener(
         webSocketState = e.data.state;
         break;
       case "message":
-        handleMessageFromPort(e.data);
+        handleMessage(e.data);
         break;
     }
   },
   false
 );
 
-function handleMessageFromPort(data) {
-  console.log(`This message is meant only for user with id: ${id}`, data);
-}
-
-const broadcastChannel = new BroadcastChannel("WebSocketChannel");
-broadcastChannel.addEventListener("message", (event) => {
-  switch (event.data.type) {
-    case "WSState":
-      webSocketState = event.data.state;
-      break;
-    case "message":
-      handleBroadcast(event.data);
-      break;
-  }
-});
-
-// Listen to broadcasts from server
-function handleBroadcast(e) {
+// Listen from shared worker
+function handleMessage(e) {
   const {
     TYPE: answerType,
     FROMSYMBOL: currency,
     PRICE: newPrice,
     MESSAGE: answerMessage,
-    PARAMETER: msgFromWS,
-    // TOSYMBOL: toCurrency,
+    PARAMETER: param,
   } = e.data;
 
   if (answerType === ERROR_CODE && answerMessage === ERROR_MESSAGE) {
-    const currencyName = msgFromWS.match(/5~CCCAGG~(\w+)~USD/i)[1];
-    const handlers = coinHandlers.get(currencyName) ?? [];
-    // TODO: change from array to object so can call it from .errors
-    const setCoinError = handlers[1];
-    setCoinError(currencyName, answerMessage);
+    // const fromCurrency = param.match(/5~CCCAGG~(\w+)~USD/i)[1];
+    const fromCurrency = param.split("~")[2];
+    const handlers = coinHandlers.get(fromCurrency) ?? {};
+
+    const setCoinError = handlers?.fail;
+    if (Array.isArray(setCoinError)) {
+      setCoinError.forEach((fn) => fn(answerMessage));
+    } else {
+      setCoinError(answerMessage);
+    }
     return;
   }
 
   if (answerType !== AGGREGATE_INDEX || newPrice === undefined) return;
 
-  const handlers = coinHandlers.get(currency) ?? [];
-  const updateCoinPrice = handlers[0];
-  updateCoinPrice(newPrice);
+  const handlers = coinHandlers.get(currency) ?? {};
+  const updateCoinPrice = handlers?.success;
+  if (Array.isArray(updateCoinPrice)) {
+    updateCoinPrice.forEach((fn) => fn(newPrice));
+  } else {
+    updateCoinPrice(newPrice);
+  }
 }
-// if (answerType === ERROR_CODE) {
-//   const fromCurrency = msgFromWS.split("~")[2];
-//   const toCurrency = msgFromWS.split("~")[3];
-
-//   if (toCurrency === USD_SYMBOL) {
-//     subscribeToCoinOnWS(fromCurrency, BTC_SYMBOL);
-//     //unsubscribeFromCoinOnWS(from, to);
-//   } else {
-//     // toCurrency === BTC - no price of coin in BTC (Invalid Sub)
-//     const newPrice = "none";
-//     const handlers = coinHandlers.get(fromCurrency) || [];
-//     handlers.forEach((fn) => fn(newPrice));
-//     //unsubscribeFromCoin(to, BTC_SYMBOL);
-//   }
-// }
-
-// if (answerType === AGGREGATE_INDEX && newPrice) {
-//   if (toCurrency === BTC_SYMBOL) {
-//     coinsPricesInBTC.set(currency, newPrice);
-//     recalculatePrices(currency);
-//   } else if (currency !== BTC_SYMBOL) {
-//     // coins price in USD
-//     const handlers = coinHandlers.get(currency) || [];
-//     handlers.forEach((fn) => fn(newPrice));
-//   } else {
-//     // price of btc changed
-//     btcPrice = newPrice;
-
-//     const btcHandlers = coinHandlers.get(currency) || [];
-//     btcHandlers.forEach((fn) => fn(btcPrice));
-//     recalculatePrices(currency);
-//     if (!coinHandlers.size) {
-//       unsubscribeFromCoinOnWS(BTC_SYMBOL, USD_SYMBOL);
-//     }
-//   }
-// }
-// }
-// };
-
-// function recalculatePrices(currency) {
-//   if (!btcPrice) {
-//     subscribeToCoinOnWS(BTC_SYMBOL, USD_SYMBOL);
-//     return;
-//   }
-
-//   if (!coinsPricesInBTC || coinsPricesInBTC.size === 0) {
-//     return;
-//   }
-//   // for all coins we have in coinsPricesInBTC call handlers with recalculeted price in USD
-//   if (currency === BTC_SYMBOL) {
-//     // if price of BTC changed
-//     [...coinsPricesInBTC.keys()].forEach((coin) => {
-//       const newPrice = coinsPricesInBTC.get(coin) * btcPrice;
-//       const handlers = coinHandlers.get(coin) || [];
-//       handlers.forEach((fn) => fn(newPrice));
-//     });
-//   } else {
-//     //if price of currency in btc changed then we update the price
-//     const newPrice = coinsPricesInBTC.get(currency) * btcPrice;
-//     const handlers = coinHandlers.get(currency) || [];
-//     handlers.forEach((fn) => fn(newPrice));
-//   }
-// }
 
 const messageToWS = (action, coinName, currency) => ({
   action: action,
@@ -212,22 +90,25 @@ export const unsubscribeFromCoinOnWS = (coinName, currency = USD_SYMBOL) => {
 };
 
 export const subscribeToCoin = (coinName, cb) => {
-  const subscribers = coinHandlers.get(coinName) || [];
-  if (!subscribers.length) {
+  const subscribers = coinHandlers.get(coinName);
+
+  if (!subscribers) {
     subscribeToCoinOnWS(coinName);
-  }
-  if (Array.isArray(cb)) {
-    coinHandlers.set(coinName, [...subscribers, ...cb]);
+    coinHandlers.set(coinName, cb);
   } else {
-    coinHandlers.set(coinName, [...subscribers, cb]);
+    // adding new callbacks
+    Object.entries(cb).forEach((item) => {
+      const [reason, newCb] = item;
+      const oldCb = subscribers[reason] || [];
+
+      if (Array.isArray(oldCb)) {
+        subscribers[reason] = [...oldCb, newCb];
+      } else {
+        subscribers[reason] = [oldCb, newCb];
+      }
+    });
+    coinHandlers.set(coinName, subscribers);
   }
-  // can be used isntead of unsubscribe method
-  // return () => {
-  //   coinHandlers.set(
-  //     coin,
-  //     subscribers.filter((fn) => fn !== cb)
-  //   );
-  // };
 };
 
 export const unsubscribeFromCoin = (coin) => {
@@ -246,7 +127,7 @@ function postMessageToWSServer(message) {
   } else {
     worker.port.postMessage({
       // Include the sender information as a uuid to get back the response
-      from: id,
+      from: tabId,
       data: message,
     });
   }
