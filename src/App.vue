@@ -104,47 +104,14 @@
         :graph="graph"
         v-if="selectedCoin"
       ></price-graph>
-      <rounded-button @click="$refs.simpleModalRef.open()" class="mr-2">
-        Open modal
-      </rounded-button>
-      <rounded-button @click="$refs.dangerModalRef.openModal()">
-        Open danger modal
-      </rounded-button>
     </div>
   </div>
-  <my-modal ref="simpleModalRef">
-    <template v-slot:header> Terms of Service </template>
-    <template v-slot:default>
-      <div class="p-6 space-y-6">
-        <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400">
-          With less than a month to go before the European Union enacts new
-          consumer privacy laws for its citizens, companies around the world are
-          updating their terms of service agreements to comply.
-        </p>
-        <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400">
-          The European Union’s General Data Protection Regulation (G.D.P.R.)
-          goes into effect on May 25 and is meant to ensure a common set of data
-          rights in the European Union. It requires organizations to notify
-          users as soon as possible of high-risk data breaches that could
-          personally affect them.
-        </p>
-      </div>
-    </template>
-  </my-modal>
-  <danger-modal ref="dangerModalRef"></danger-modal>
 </template>
 
 <script>
-import {
-  requestCoins,
-  subscribeToCoin,
-  unsubscribeFromCoin,
-  // startSW,
-} from "./api/api";
-import RoundedButton from "./components/common/RoundedButton";
-import MyModal from "./components/common/MyModal";
-import DangerModal from "./components/DangerModal";
+import { requestCoins, subscribeToCoin, unsubscribeFromCoin } from "./api/api";
 import AddCoin from "./components/AddCoin";
+import RoundedButton from "./components/common/RoundedButton";
 import PriceGraph from "./components/PriceGraph";
 
 export default {
@@ -153,8 +120,6 @@ export default {
     AddCoin,
     RoundedButton,
     PriceGraph,
-    MyModal,
-    DangerModal,
   },
   data() {
     return {
@@ -171,12 +136,11 @@ export default {
     };
   },
   created() {
-    // startSW();
-
     this.syncFromUrl();
     this.syncFromLocalStorage();
   },
   computed: {
+    // ...mapMutations(["someMutation"]),
     pageStateOptions() {
       return {
         filter: this.filter,
@@ -199,6 +163,10 @@ export default {
     },
   },
   methods: {
+    smth() {
+      this.$store.commit("setSmth");
+      console.log(this.$store.state.smth);
+    },
     syncFromLocalStorage() {
       const coinsData = localStorage.getItem("crypto-list");
 
@@ -288,10 +256,14 @@ export default {
       this.selectedCoin = coin;
     },
     async getCoinsData() {
-      const coinsData = await requestCoins();
-
-      this.isAppInitialized = true;
-      this.allCoinData = coinsData.Data;
+      try {
+        const coinsData = await requestCoins();
+        this.allCoinData = coinsData.Data;
+      } catch (error) {
+        console.log(error);
+      } finally {
+        this.isAppInitialized = true;
+      }
     },
     subscribeToCoinEvents(coin) {
       subscribeToCoin(coin, {

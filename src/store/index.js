@@ -1,9 +1,19 @@
 import { createStore } from "vuex";
 
 export default createStore({
-  state: {},
+  state: {
+    smth: false,
+  },
   getters: {},
-  mutations: {},
-  actions: {},
+  mutations: {
+    setSmth(state) {
+      state.smth = !state.smth;
+    },
+  },
+  actions: {
+    // setSmth(context) {
+    //   context.commit("setSmth");
+    // },
+  },
   modules: {},
 });
